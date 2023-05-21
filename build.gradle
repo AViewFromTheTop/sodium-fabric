@@ -1,6 +1,11 @@
 plugins {
     id 'fabric-loom' version '1.0-SNAPSHOT'
     id 'org.ajoberstar.grgit' version '4.1.0'
+    id 'maven-publish'
+    id 'com.matthewprenger.cursegradle' version '1.4.0'
+    id 'com.modrinth.minotaur' version '2.1.1'
+    id 'org.cadixdev.licenser' version '0.6.1'
+    id "com.github.breadmoirai.github-release" version "2.2.12"
 }
 
 sourceCompatibility = "17"
@@ -13,6 +18,14 @@ group = project.maven_group
 loom {
     mixin.defaultRefmapName = "mixins.sodium.refmap.json"
     accessWidenerPath = file("src/main/resources/sodium.accesswidener")
+}
+
+repositories {
+    maven { url "https://maven.fabricmc.net/" }
+    maven { url "https://maven.shedaniel.me/" }
+    maven { url "https://maven.siphalor.de/" }
+    maven { url "https://maven.terraformersmc.com/" }
+    maven { url "https://jitpack.io/" }
 }
 
 configurations {
@@ -80,4 +93,28 @@ def getVersionMetadata() {
 
     // No tracking information could be found about the build
     return "unknown"
+}
+
+// Mod sites
+
+static def getChangelog() {
+	return 'git log -1 --format=format:##%x20%s%n%n%b%nRelease%x20by%x20%an --grep Version'.execute().text.trim()
+}
+
+task uploadToModSites {
+	dependsOn build
+	group = "upload"
+}
+
+if (project.hasProperty("githubToken")) {
+	githubRelease {
+		token githubToken
+		targetCommitish = "$minecraft_major_version-2.0"
+		releaseName = "Version $mod_version for $project.mod_mc_version_specifier"
+		body = getChangelog()
+		releaseAssets remapJar.getArchiveFile()
+		prerelease = mod_release != "release"
+		overwrite = true
+	}
+	uploadToModSites.finalizedBy(tasks.githubRelease)
 }
